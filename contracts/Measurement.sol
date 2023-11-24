@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: GPL-3.0
+
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract DeviceInterface{
-    function getDevice() external view returns (address wallet, string memory cpe, uint maxBuyPrice,uint minSellPrice, bool enabled);
+    mapping (string => bool) public cpeInUse;
+    function getDevice(uint256 _device) external view returns (address wallet, string memory cpe, uint maxBuyPrice,uint minSellPrice, bool enabled);
 }
 
 contract MeasurementFactory is Ownable{
@@ -17,18 +20,17 @@ contract MeasurementFactory is Ownable{
         uint256 reactiveCapacitive;
     }
 
-    /// Measurement Storage
-    address[] private devices;
-    mapping(address => bool) allowedDevices;
-    mapping(address => Measurement[]) deviceMeasurements;
-
     /// Event declaration for Measurements
     event AddedDevice(address newDev,uint256 timestamp);
     event RemovedDevice(address removedDev,uint256 timestamp);
-    event NewMeasurement(address indexed device, uint256 timestamp);
 
-    /// Error handlers
-    error UnauthorizedDevice(address device);
+    event NewMeasurement(address indexed device,uint256 activeImport, uint256 activeExport,uint256 reactiveInductive,uint256 reactiveCapacitive, uint256 timestamp);
+
+    ///Constructor
+    constructor(address _deviceContract){
+        /// Locate and Load Devices 
+        deviceContract = DeviceInterface(_deviceContract);
+    }
 
     ///Contract imports
     DeviceInterface deviceContract; 
@@ -52,23 +54,28 @@ contract MeasurementFactory is Ownable{
         emit RemovedDevice(oldDevice, block.timestamp);
     }
 
-    function insertMeasurement(uint256 _activeImport, uint256 _activeExport, uint256 _reactiveInductive,uint256 _reactiveCapacitive) hasPermission{
+    function insertMeasurement(uint256 _device, uint256 _activeImport, uint256 _activeExport, uint256 _reactiveInductive,uint256 _reactiveCapacitive) hasPermission( _device ){
         require(_activeImport >= deviceMeasurements[msg.sender][deviceMeasurements[msg.sender].length - 1].activeImport,"activeImport cannot be lower than previous measurement.")
         require(_activeExport >= deviceMeasurements[msg.sender][deviceMeasurements[msg.sender].length - 1].activeExport,"activeExport cannot be lower than previous measurement.")
         require(_reactiveInductive >= deviceMeasurements[msg.sender][deviceMeasurements[msg.sender].length - 1].reactiveInductive,"reactiveInductive cannot be lower than previous measurement.")
         require(_reactiveCapacitive >= deviceMeasurements[msg.sender][deviceMeasurements[msg.sender].length - 1].reactiveCapacitive,"reactiveCapacitive cannot be lower than previous measurement.")
         uint256 timestamp = block.timestamp;
         deviceMeasurements[msg.sender].push(Measurement(timestamp,_activeImport,_activeExport,_reactiveInductive,_reactiveCapacitive));
-        emit NewMeasurement(msg.sender, timestamp);
+        emit NewMeasurement(msg.sender,_activeImport,_activeExport,_reactiveInductive,_reactiveCapacitive,timestamp);
     }
 
 
-    modifier hasPermission(){
-        if(!allowedDevices[msg.sender]){
-            revert UnauthorizedDevice(msg.sender);
-        }
+
+    modifier hasPermission(uint256 _device){
+        address wallet;
+        string memory cpe;
+        bool enabled;
+        (wallet,cpe,,,enabled) = deviceContract.getDevice( _device);
+        require(enabled,"DEVICE NOT ENABLED");
+        require(deviceContract.cpeInUse[cpe],"CPE NOT ENABLED");
         _;
     }
+
 
 }
 

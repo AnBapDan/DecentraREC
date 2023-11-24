@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
 contract DeviceFactory{
@@ -55,7 +55,7 @@ contract DeviceFactory{
         return (dev.wallet, dev.cpe, dev.maxBuyPrice, dev.minSellPrice, dev.enabled);
     }
 
-    function updatePriceDevice(uint256 _deviceId, uint256 _newBuyPrice, uint256 _newSellPrice) external {
+    function updateDevicePrice(uint256 _deviceId, uint256 _newBuyPrice, uint256 _newSellPrice) external {
 
         require(_deviceId <= devices.length -1 , " ID OUT OF BOUNDS");
         require(deviceToOwner[_deviceId] == msg.sender, "This is not your device. Oops...");
