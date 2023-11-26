@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 contract DeviceFactory{
 
@@ -54,6 +54,10 @@ contract DeviceFactory{
         Device memory dev = devices[_device];
         return (dev.wallet, dev.cpe, dev.maxBuyPrice, dev.minSellPrice, dev.enabled);
     }
+
+    function isCPEUsed(string memory cpe) external view returns (bool){
+        return cpeInUse[cpe];
+     }
 
     function updateDevicePrice(uint256 _deviceId, uint256 _newBuyPrice, uint256 _newSellPrice) external {
 
