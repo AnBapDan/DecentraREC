@@ -20,6 +20,8 @@ contract MeasurementFactory is Ownable{
         uint256 reactiveCapacitive;
     }
 
+    uint256 interval = 15 minutes;
+
     mapping( address => Measurement ) latestMeasurement;
 
     /// Event declaration for Measurements
@@ -42,9 +44,10 @@ contract MeasurementFactory is Ownable{
         require(_activeExport >= latestMeasurement[msg.sender].activeExport,"activeExport cannot be lower than previous measurement.");
         require(_reactiveInductive >= latestMeasurement[msg.sender].reactiveInductive,"reactiveInductive cannot be lower than previous measurement.");
         require(_reactiveCapacitive >= latestMeasurement[msg.sender].reactiveCapacitive,"reactiveCapacitive cannot be lower than previous measurement.");
-        uint256 timestamp = block.timestamp;
-        latestMeasurement[msg.sender] = Measurement(timestamp,_activeImport,_activeExport,_reactiveInductive,_reactiveCapacitive);
+        uint256 timestamp = _roundToNearestInterval(block.timestamp);
+        //need to verify timestamp += interval and create bid
         emit NewMeasurement(msg.sender,_activeImport,_activeExport,_reactiveInductive,_reactiveCapacitive,timestamp);
+        latestMeasurement[msg.sender] = Measurement(timestamp,_activeImport,_activeExport,_reactiveInductive,_reactiveCapacitive);
     }
 
 
@@ -59,6 +62,26 @@ contract MeasurementFactory is Ownable{
         _;
     }
 
+    function setInterval(uint256 newInterval) external onlyOwner{
+        interval = newInterval;
+    }
 
+    function _roundToNearestInterval(uint256 timestamp) private view returns (uint256) {
+        // Calculate the number of seconds past the last midnight
+        uint256 secondsSinceMidnight = timestamp % 1 days;
+
+        uint256 remainder = secondsSinceMidnight % interval;
+
+        bool roundUp = remainder > (interval/ 2); 
+
+        uint256 roundedTimestamp;
+        if (roundUp) {
+            roundedTimestamp = timestamp + (interval - remainder);
+        } else {
+            roundedTimestamp = timestamp - remainder;
+        }
+
+        return roundedTimestamp;
+    }
 }
 
