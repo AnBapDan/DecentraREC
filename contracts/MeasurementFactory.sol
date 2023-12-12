@@ -24,9 +24,9 @@ contract MeasurementFactory is Ownable{
 
     mapping( address => Measurement ) latestMeasurement;
 
-    /// Event declaration for Measurements
+    /// Event declaration for Measurements and Bids
     event NewMeasurement(address indexed device,uint256 activeImport, uint256 activeExport,uint256 reactiveInductive,uint256 reactiveCapacitive, uint256 timestamp);
-
+    event NewBid(address indexed device, uint256 activeImport, uint256 activeExport, uint256 reactiveInductive,uint256 reactiveCapacitive, uint256 timestamp);
     ///Constructor
     constructor(address _deviceContract) Ownable(msg.sender){
         /// Locate and Load Devices 
@@ -39,15 +39,42 @@ contract MeasurementFactory is Ownable{
         deviceContract = DeviceInterface(_address);
     }
 
-    function insertMeasurement(uint256 _device, uint256 _activeImport, uint256 _activeExport, uint256 _reactiveInductive,uint256 _reactiveCapacitive) external hasPermission( _device ){
+    function createMeasurement(uint256 _device, uint256 _activeImport, uint256 _activeExport, uint256 _reactiveInductive,uint256 _reactiveCapacitive) external hasPermission( _device ){
+        /// Verify equal or increment in those stats
         require(_activeImport >= latestMeasurement[msg.sender].activeImport,"activeImport cannot be lower than previous measurement.");
         require(_activeExport >= latestMeasurement[msg.sender].activeExport,"activeExport cannot be lower than previous measurement.");
         require(_reactiveInductive >= latestMeasurement[msg.sender].reactiveInductive,"reactiveInductive cannot be lower than previous measurement.");
         require(_reactiveCapacitive >= latestMeasurement[msg.sender].reactiveCapacitive,"reactiveCapacitive cannot be lower than previous measurement.");
-        uint256 timestamp = _roundToNearestInterval(block.timestamp);
-        //need to verify timestamp += interval and create bid
+
+        /// Round value to make it 00:00:00 or 00:15:00 (fixed period)
+        uint256 init = block.timestamp;
+        uint256 timestamp = _roundToNearestInterval(init);
+
+        //. Verify if not to much time elapsed
+        require(timestamp >= init - 180 && timestamp <= init + 180, "Timestamp difference is not within +/-3 minutes");
+
+        /// Prevents rewriting Measurements
+        require(latestMeasurement[msg.sender].timestamp > timestamp, "The incoming measurement is older or equal than the one registered");
+
+        /// Creates Measurement 
         emit NewMeasurement(msg.sender,_activeImport,_activeExport,_reactiveInductive,_reactiveCapacitive,timestamp);
+
+        if (timestamp - latestMeasurement[msg.sender].timestamp == interval) {
+            /// Emit new Bid after net metering
+            //TODO give this to other class
+            
+            emit NewBid(
+                msg.sender, 
+                _activeImport - latestMeasurement[msg.sender].activeImport ,
+                _activeExport - latestMeasurement[msg.sender].activeExport,
+                _reactiveInductive - latestMeasurement[msg.sender].reactiveInductive,
+                _reactiveCapacitive - latestMeasurement[msg.sender].reactiveCapacitive,
+                timestamp
+                );
+
+        }
         latestMeasurement[msg.sender] = Measurement(timestamp,_activeImport,_activeExport,_reactiveInductive,_reactiveCapacitive);
+
     }
 
 
